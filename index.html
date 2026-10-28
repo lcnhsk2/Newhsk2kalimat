@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="id" translate="no" class="notranslate">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Anti Auto-Translate -->
+    <meta name="google" content="notranslate">
+    <title>HSK 2 Vocabulary Gamification</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for Audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        /* Anti-Select, Copy, and general interaction limitations */
+        body {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        
+        /* Custom animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { background-color: #ef4444; }
+            50% { background-color: #b91c1c; }
+        }
+        .time-warning {
+            animation: pulse-red 1s infinite;
+        }
+        
+        /* New animations and layout */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake {
+            animation: shake 0.3s ease-in-out;
+        }
+        .blank-slot {
+            transition: all 0.2s ease-in-out;
+        }
+        .aspect-video-container {
+            aspect-ratio: 16 / 9;
+            width: 100%;
+            max-width: 1200px;
+            max-height: 85vh; /* ensure it fits vertically */
+            margin: 0 auto;
+        }
+        /* Vibrant background transitions */
+        body {
+            transition: background 1s ease-in-out;
+        }
+    </style>
+</head>
+<body class="notranslate bg-gradient-to-br from-indigo-100 to-purple-200 text-slate-800 flex flex-col min-h-screen font-sans overflow-hidden" oncontextmenu="return false;" translate="no">
+
+    <!-- Main Game Container -->
+    <main class="flex-grow flex items-center justify-center p-2 sm:p-4 w-full h-full">
+        <div id="game-container" class="bg-white/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/50 aspect-video-container relative overflow-hidden flex flex-col">
+            <!-- Content will be injected here by JavaScript -->
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center p-2 text-slate-600 font-medium text-xs bg-white/50 backdrop-blur-sm border-t border-white/50 z-10 relative">
+        copyright (c) lcnpalembang-08994477998
+    </footer>
+
+    <!-- Anti-Cheat Warning Modal -->
+    <div id="warning-modal" class="fixed inset-0 bg-white/95 z-[100] hidden flex flex-col items-center justify-center p-6 text-center backdrop-blur-md">
+        <svg class="w-24 h-24 text-red-500 mb-4 animate-pulse drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        <h2 class="text-4xl font-black text-red-600 mb-4 drop-shadow-sm">PERINGATAN!</h2>
+        <p class="text-xl text-slate-700 max-w-lg mb-8 font-medium">Anda terdeteksi keluar dari halaman kuis, membuka tab lain, atau mencoba melakukan kecurangan. <br><br>Apakah Anda ingin melanjutkan kuis atau keluar?</p>
+        <div class="flex space-x-4">
+            <button onclick="dismissWarning(true)" class="px-8 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition shadow-lg border border-red-400">Keluar & Akhiri</button>
+            <button onclick="dismissWarning(false)" class="px-8 py-3 bg-white text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition shadow-lg border border-slate-200">Lanjut Kuis</button>
+        </div>
+    </div>
+
+    <script>
+        // --- DATASET: Lessons, Vocabulary, and Sentences (HSK 2 Level) ---
+        const quizData = [
+            {
+                lesson: 1, title: "她请我们吃了北京烤鸭",
+                words: [
+                    { word: "就", pinyin: "jiù", meaning: "langsung / maka", sentence: "我吃了饭___去学校。", sentenceMeaning: "Saya setelah makan langsung pergi ke sekolah." },
+                    { word: "给", pinyin: "gěi", meaning: "memberi / untuk", sentence: "请___我一杯水。", sentenceMeaning: "Tolong berikan saya segelas air." },
+                    { word: "让", pinyin: "ràng", meaning: "membiarkan / menyuruh", sentence: "妈妈不___我去看电视。", sentenceMeaning: "Ibu tidak mengizinkan saya pergi menonton TV." },
+                    { word: "接", pinyin: "jiē", meaning: "menjemput / menerima", sentence: "爸爸去车站___朋友了。", sentenceMeaning: "Ayah pergi ke stasiun menjemput teman." },
+                    { word: "次", pinyin: "cì", meaning: "kali (frekuensi)", sentence: "我去过一___北京。", sentenceMeaning: "Saya pernah pergi satu kali ke Beijing." },
+                    { word: "旅游", pinyin: "lǚyóu", meaning: "berwisata / jalan-jalan", sentence: "我们打算去中国___。", sentenceMeaning: "Kami berencana pergi ke Tiongkok untuk berwisata." },
+                    { word: "帮忙", pinyin: "bāngmáng", meaning: "membantu", sentence: "你可以___我一下吗？", sentenceMeaning: "Apakah kamu bisa membantuku sebentar?" },
+                    { word: "不好意思", pinyin: "bù hǎoyìsi", meaning: "segan / maaf", sentence: "真___，我迟到了。", sentenceMeaning: "Sungguh tidak enak hati/maaf, saya terlambat." },
+                    { word: "已经", pinyin: "yǐjīng", meaning: "sudah", sentence: "我们___吃完饭了。", sentenceMeaning: "Kami sudah selesai makan." },
+                    { word: "那", pinyin: "nà", meaning: "kalau begitu / itu", sentence: "你不去？___我自己去吧。", sentenceMeaning: "Kamu tidak pergi? Kalau begitu saya pergi sendiri saja." },
+                    { word: "介绍", pinyin: "jièshào", meaning: "memperkenalkan", sentence: "我来___一下我的朋友。", sentenceMeaning: "Saya akan memperkenalkan teman saya sebentar." },
+                    { word: "有时", pinyin: "yǒushí", meaning: "kadang-kadang", sentence: "我___坐公交车去学校。", sentenceMeaning: "Saya kadang-kadang naik bus ke sekolah." },
+                    { word: "懂", pinyin: "dǒng", meaning: "mengerti / paham", sentence: "这句话你听___了吗？", sentenceMeaning: "Apakah kamu paham mendengarkan kalimat ini?" },
+                    { word: "意思", pinyin: "yìsi", meaning: "arti / maksud", sentence: "这个词是什么___？", sentenceMeaning: "Kata ini apa artinya?" },
+                    { word: "北京烤鸭", pinyin: "Běijīng kǎoyā", meaning: "Bebek Panggang Beijing", sentence: "她请我们吃了___。", sentenceMeaning: "Dia mengundang kami makan bebek panggang Beijing." }
+                ]
+            },
+            {
+                lesson: 2, title: "还是打车去北大吧",
+                words: [
+                    { word: "公交车", pinyin: "gōngjiāochē", meaning: "bus umum", sentence: "我们坐___去学校吧。", sentenceMeaning: "Mari kita naik bus umum ke sekolah." },
+                    { word: "但", pinyin: "dàn", meaning: "tetapi", sentence: "我想去，___今天没有时间。", sentenceMeaning: "Saya ingin pergi, tetapi hari ini tidak ada waktu." },
+                    { word: "车站", pinyin: "chēzhàn", meaning: "stasiun / halte", sentence: "我们在公交___见面吧。", sentenceMeaning: "Mari kita bertemu di halte bus." },
+                    { word: "远", pinyin: "yuǎn", meaning: "jauh", sentence: "我家离学校不___。", sentenceMeaning: "Rumah saya dari sekolah tidak jauh." },
+                    { word: "打车", pinyin: "dǎchē", meaning: "naik taksi", sentence: "太晚了，我们___回家吧。", sentenceMeaning: "Sudah terlalu malam, mari kita naik taksi pulang ke rumah." },
+                    { word: "还是", pinyin: "háishì", meaning: "lebih baik / atau", sentence: "天气不好，你___别出去了。", sentenceMeaning: "Cuaca tidak bagus, kamu lebih baik jangan keluar." },
+                    { word: "北京大学", pinyin: "Běijīng Dàxué", meaning: "Universitas Beijing", sentence: "他是在___学习的留学生。", sentenceMeaning: "Dia adalah mahasiswa asing yang belajar di Universitas Beijing." },
+                    { word: "啊", pinyin: "a", meaning: "partikel seru", sentence: "这里的风景真美___！", sentenceMeaning: "Pemandangan di sini sungguh indah ya!" },
+                    { word: "万", pinyin: "wàn", meaning: "puluh ribu (10.000)", sentence: "这本书要一___印尼盾。", sentenceMeaning: "Buku ini harganya sepuluh ribu Rupiah." },
+                    { word: "名", pinyin: "míng", meaning: "kata penggolong orang", sentence: "我们班有二十___学生。", sentenceMeaning: "Kelas kami ada 20 orang murid." },
+                    { word: "网上", pinyin: "wǎngshang", meaning: "di internet", sentence: "我喜欢在___买东西。", sentenceMeaning: "Saya suka membeli barang di internet." },
+                    { word: "外国", pinyin: "wàiguó", meaning: "luar negeri", sentence: "很多___人喜欢中国菜。", sentenceMeaning: "Banyak orang luar negeri menyukai masakan Tiongkok." },
+                    { word: "间", pinyin: "jiān", meaning: "kata penggolong ruangan", sentence: "这___教室很大也很干净。", sentenceMeaning: "Ruang kelas ini sangat besar dan juga bersih." },
+                    { word: "教室", pinyin: "jiàoshì", meaning: "ruang kelas", sentence: "学生们都在___里上课。", sentenceMeaning: "Para murid semua sedang belajar di dalam kelas." },
+                    { word: "票", pinyin: "piào", meaning: "tiket", sentence: "我已经买好了电影___。", sentenceMeaning: "Saya sudah membeli tiket bioskop." },
+                    { word: "别", pinyin: "bié", meaning: "jangan", sentence: "太晚了，___看电视了。", sentenceMeaning: "Sudah sangat malam, jangan menonton TV lagi." }
+                ]
+            },
+            {
+                lesson: 3, title: "我想去西安旅游",
+                words: [
+                    { word: "回来", pinyin: "huílái", meaning: "kembali / pulang", sentence: "你什么时候___家？", sentenceMeaning: "Kapan kamu pulang ke rumah?" },
+                    { word: "这么", pinyin: "zhème", meaning: "sebegini / begitu", sentence: "今天天气___冷，多穿点吧。", sentenceMeaning: "Hari ini cuaca begitu dingin, pakai baju lebih banyak ya." },
+                    { word: "完", pinyin: "wán", meaning: "selesai", sentence: "我做___作业了，可以玩了。", sentenceMeaning: "Saya sudah selesai mengerjakan PR, boleh bermain." },
+                    { word: "一起", pinyin: "yìqǐ", meaning: "bersama-sama", sentence: "我们___去吃晚饭吧。", sentenceMeaning: "Mari kita bersama-sama pergi makan malam." },
+                    { word: "出去", pinyin: "chūqù", meaning: "pergi keluar", sentence: "外面下雨了，别___了。", sentenceMeaning: "Di luar hujan, jangan keluar." },
+                    { word: "洗", pinyin: "xǐ", meaning: "mencuci", sentence: "吃饭前要先___手。", sentenceMeaning: "Sebelum makan harus mencuci tangan dulu." },
+                    { word: "自己", pinyin: "zìjǐ", meaning: "sendiri", sentence: "这件事你要___做。", sentenceMeaning: "Hal ini kamu harus lakukan sendiri." },
+                    { word: "拿", pinyin: "ná", meaning: "mengambil / memegang", sentence: "请帮我___一下这本书。", sentenceMeaning: "Tolong bantu saya ambilkan buku ini sebentar." },
+                    { word: "手", pinyin: "shǒu", meaning: "tangan", sentence: "你的___怎么了？受了吗？", sentenceMeaning: "Ada apa dengan tanganmu? Terluka?" },
+                    { word: "为什么", pinyin: "wèishénme", meaning: "mengapa / kenapa", sentence: "你___今天没有来上课？", sentenceMeaning: "Mengapa kamu hari ini tidak datang masuk kelas?" },
+                    { word: "不错", pinyin: "búcuò", meaning: "bagus / tidak buruk", sentence: "这家餐厅的菜真___。", sentenceMeaning: "Masakan di restoran ini sungguh bagus/enak." },
+                    { word: "送", pinyin: "sòng", meaning: "mengirim / mengantar / memberi", sentence: "我去机场___朋友。", sentenceMeaning: "Saya pergi ke bandara mengantar teman." },
+                    { word: "回去", pinyin: "huíqù", meaning: "kembali ke sana", sentence: "时间不早了，我该___了。", sentenceMeaning: "Waktu tidak pagi lagi, saya harus kembali." },
+                    { word: "每", pinyin: "měi", meaning: "setiap", sentence: "我___天六点起床锻炼身体。", sentenceMeaning: "Saya setiap hari jam 6 bangun berolahraga." },
+                    { word: "累", pinyin: "lèi", meaning: "lelah / capek", sentence: "今天工作了一天，太___了。", sentenceMeaning: "Hari ini bekerja seharian, terlalu lelah." }
+                ]
+            },
+            {
+                lesson: 4, title: "你穿红色的很好看",
+                words: [
+                    { word: "过", pinyin: "guo", meaning: "pernah (partikel)", sentence: "我去___中国，看过熊猫。", sentenceMeaning: "Saya pernah pergi ke Tiongkok, pernah melihat panda." },
+                    { word: "商场", pinyin: "shāngchǎng", meaning: "mal / pusat perbelanjaan", sentence: "周末我和朋友去___买衣服。", sentenceMeaning: "Akhir pekan saya dan teman pergi ke mal membeli baju." },
+                    { word: "进去", pinyin: "jìnqù", meaning: "masuk (ke dalam)", sentence: "里面没人，我们可以___。", sentenceMeaning: "Di dalam tidak ada orang, kita bisa masuk." },
+                    { word: "条", pinyin: "tiáo", meaning: "kata penggolong celana/benda panjang", sentence: "我买了一___新裤子。", sentenceMeaning: "Saya membeli sepotong celana baru." },
+                    { word: "裤子", pinyin: "kùzi", meaning: "celana", sentence: "这条___有点长。", sentenceMeaning: "Celana ini agak panjang." },
+                    { word: "白色", pinyin: "báisè", meaning: "warna putih", sentence: "我喜欢穿___的衬衫。", sentenceMeaning: "Saya suka memakai kemeja berwarna putih." },
+                    { word: "因为", pinyin: "yīnwèi", meaning: "karena", sentence: "___下雨，所以我不出去了。", sentenceMeaning: "Karena hujan, maka saya tidak keluar lagi." },
+                    { word: "试", pinyin: "shì", meaning: "mencoba", sentence: "这件衣服你可以___一下。", sentenceMeaning: "Baju ini boleh kamu coba sebentar." },
+                    { word: "红色", pinyin: "hóngsè", meaning: "warna merah", sentence: "她穿着一件___的裙子。", sentenceMeaning: "Dia memakai sebuah gaun berwarna merah." },
+                    { word: "所以", pinyin: "suǒyǐ", meaning: "oleh karena itu / maka", sentence: "因为生病，___他没来上班。", sentenceMeaning: "Karena sakit, maka dia tidak datang bekerja." },
+                    { word: "书包", pinyin: "shūbāo", meaning: "tas sekolah", sentence: "我的红___里有三本书。", sentenceMeaning: "Di dalam tas sekolah merahku ada 3 buah buku." },
+                    { word: "过去", pinyin: "guòqù", meaning: "pergi ke sana / lewat", sentence: "请你___帮一下他。", sentenceMeaning: "Tolong kamu pergi ke sana membantunya." },
+                    { word: "绿色", pinyin: "lǜsè", meaning: "warna hijau", sentence: "春天的树叶都是___的。", sentenceMeaning: "Daun pohon di musim semi semuanya berwarna hijau." },
+                    { word: "黑色", pinyin: "hēisè", meaning: "warna hitam", sentence: "他买了一双___的皮鞋。", sentenceMeaning: "Dia membeli sepasang sepatu kulit berwarna hitam." },
+                    { word: "更", pinyin: "gèng", meaning: "lebih", sentence: "我觉得红色的___好看。", sentenceMeaning: "Saya merasa yang berwarna merah lebih bagus dilihat." }
+                ]
+            },
+            {
+                lesson: 5, title: "第一次去中国朋友家",
+                words: [
+                    { word: "快", pinyin: "kuài", meaning: "cepat / hampir", sentence: "火车___要来了，大家准备好。", sentenceMeaning: "Kereta api hampir tiba, semuanya bersiap." },
+                    { word: "下来", pinyin: "xiàlái", meaning: "turun kemari", sentence: "请从楼上___吧。", sentenceMeaning: "Tolong turun kemari dari lantai atas." },
+                    { word: "上来", pinyin: "shànglái", meaning: "naik kemari", sentence: "你在楼下吗？快___吧。", sentenceMeaning: "Kamu di lantai bawah? Cepat naik kemari." },
+                    { word: "上去", pinyin: "shàngqù", meaning: "naik ke sana", sentence: "电梯来了，我们坐___吧。", sentenceMeaning: "Lift datang, mari kita naik ke sana." },
+                    { word: "下面", pinyin: "xiàmiàn", meaning: "bagian bawah", sentence: "桌子___有一只小猫。", sentenceMeaning: "Di bawah meja ada seekor anak kucing." },
+                    { word: "面", pinyin: "miàn", meaning: "bakmi / mi", sentence: "早上我吃了一碗水煮___。", sentenceMeaning: "Pagi hari saya makan semangkuk mi rebus." },
+                    { word: "等", pinyin: "děng", meaning: "menunggu", sentence: "请在路口___我一会儿。", sentenceMeaning: "Tolong tunggu saya sebentar di persimpangan jalan." },
+                    { word: "一会儿", pinyin: "yíhuìr", meaning: "sebentar", sentence: "我坐___就走。", sentenceMeaning: "Saya duduk sebentar lalu pergi." },
+                    { word: "下去", pinyin: "xiàqù", meaning: "turun ke sana", sentence: "外面冷，别走___了。", sentenceMeaning: "Di luar dingin, jangan turun ke sana." },
+                    { word: "进来", pinyin: "jìnlái", meaning: "masuk kemari", sentence: "门开着，请___吧。", sentenceMeaning: "Pintu terbuka, silakan masuk kemari." },
+                    { word: "爷爷", pinyin: "yéye", meaning: "kakek", sentence: "我的___今年七十岁了。", sentenceMeaning: "Kakek saya tahun ini berusia 70 tahun." },
+                    { word: "奶奶", pinyin: "nǎinai", meaning: "nenek", sentence: "我和___一起住在北京。", sentenceMeaning: "Saya dan nenek tinggal bersama di Beijing." },
+                    { word: "礼物", pinyin: "lǐwù", meaning: "hadiah", sentence: "这是送给你的生日___。", sentenceMeaning: "Ini adalah hadiah ulang tahun untukmu." },
+                    { word: "准备", pinyin: "zhǔnbèi", meaning: "menyiapkan / bersiap", sentence: "你在___做什么菜？", sentenceMeaning: "Kamu sedang bersiap membuat masakan apa?" },
+                    { word: "奶茶", pinyin: "nǎichá", meaning: "teh susu", sentence: "我最喜欢喝冰___。", sentenceMeaning: "Saya paling suka minum teh susu es." },
+                    { word: "跟", pinyin: "gēn", meaning: "dengan / bersama", sentence: "我想___你一起去逛街。", sentenceMeaning: "Saya ingin pergi jalan-jalan bersamamu." },
+                    { word: "酒店", pinyin: "jiǔdiàn", meaning: "hotel", sentence: "我们住在离车站很近的___。", sentenceMeaning: "Kami tinggal di hotel yang sangat dekat dari stasiun." }
+                ]
+            },
+            {
+                lesson: 6, title: "小雪，生日快乐",
+                words: [
+                    { word: "生日", pinyin: "shēngrì", meaning: "ulang tahun", sentence: "祝你___快乐！", sentenceMeaning: "Selamat ulang tahun untukmu!" },
+                    { word: "忘", pinyin: "wàng", meaning: "lupa", sentence: "别___了明天有考试。", sentenceMeaning: "Jangan lupa besok ada ujian." },
+                    { word: "画", pinyin: "huà", meaning: "melukis / gambar", sentence: "妹妹很喜欢画___。", sentenceMeaning: "Adik perempuan sangat suka melukis gambar." },
+                    { word: "画笔", pinyin: "huàbǐ", meaning: "kuas / kuas lukis", sentence: "哥哥用黑色___画画。", sentenceMeaning: "Kakak laki-laki menggunakan kuas lukis hitam untuk menggambar." },
+                    { word: "蛋糕", pinyin: "dàngāo", meaning: "kue", sentence: "我们一起吃生日___吧。", sentenceMeaning: "Mari kita makan kue ulang tahun bersama." },
+                    { word: "快乐", pinyin: "kuàilè", meaning: "bahagia / selamat", sentence: "祝大家新年___！", sentenceMeaning: "Selamat tahun baru semuanya!" },
+                    { word: "打开", pinyin: "dǎkāi", meaning: "membuka / menyalakan", sentence: "请把生日礼物___看看。", sentenceMeaning: "Tolong buka hadiah ulang tahunnya dan lihat." },
+                    { word: "长", pinyin: "cháng", meaning: "panjang", sentence: "妹妹的头发很___。", sentenceMeaning: "Rambut adik perempuan sangat panjang." },
+                    { word: "鱼", pinyin: "yú", meaning: "ikan", sentence: "猫最喜欢吃新鲜的___。", sentenceMeaning: "Kucing paling suka makan ikan yang segar." },
+                    { word: "肉", pinyin: "ròu", meaning: "daging", sentence: "今天晚上我们吃羊___吧。", sentenceMeaning: "Malam hari ini mari kita makan daging domba." },
+                    { word: "过", pinyin: "guò", meaning: "merayakan / menghabiskan", sentence: "你想怎么___生日？", sentenceMeaning: "Kamu ingin bagaimana merayakan ulang tahun?" },
+                    { word: "地", pinyin: "de", meaning: "partikel keterangan", sentence: "孩子们高兴___跳了起来。", sentenceMeaning: "Anak-anak dengan gembira melompat." },
+                    { word: "床", pinyin: "chuáng", meaning: "tempat tidur", sentence: "房间里有一张很大舒服的___。", sentenceMeaning: "Di dalam kamar ada sebuah tempat tidur yang besar dan nyaman." },
+                    { word: "舒服", pinyin: "shūfu", meaning: "nyaman / enak badan", sentence: "我今天身体不太___。", sentenceMeaning: "Saya hari ini badan agak tidak nyaman/kurang sehat." }
+                ]
+            },
+            {
+                lesson: 7, title: "他篮球打得很好",
+                words: [
+                    { word: "从", pinyin: "cóng", meaning: "dari", sentence: "我___早上八点开始工作。", sentenceMeaning: "Saya bekerja dari jam 8 pagi." },
+                    { word: "往", pinyin: "wǎng", meaning: "menuju / ke arah", sentence: "___前走，就能看到车站。", sentenceMeaning: "Jalan ke arah depan, maka bisa melihat stasiun." },
+                    { word: "跑", pinyin: "pǎo", meaning: "berlari", sentence: "弟弟喜欢在公园里___。", sentenceMeaning: "Adik laki-laki suka berlari di dalam taman." },
+                    { word: "打", pinyin: "dǎ", meaning: "memukul / bermain (bola)", sentence: "周末我们去___网球吧。", sentenceMeaning: "Akhir pekan mari kita pergi bermain tenis." },
+                    { word: "篮球", pinyin: "lánqiú", meaning: "bola basket", sentence: "哥哥最喜欢打___。", sentenceMeaning: "Kakak laki-laki paling suka bermain bola basket." },
+                    { word: "运动", pinyin: "yùndòng", meaning: "olahraga", sentence: "跑步是对身体很好的___。", sentenceMeaning: "Berlari adalah olahraga yang sangat bagus bagi tubuh." },
+                    { word: "踢", pinyin: "tī", meaning: "menendang", sentence: "下午我们去操场___足球吧。", sentenceMeaning: "Sore harinya mari kita pergi ke lapangan menendang bola." },
+                    { word: "足球", pinyin: "zúqiú", meaning: "sepak bola", sentence: "你想一起去看___比赛吗？", sentenceMeaning: "Apakah kamu ingin pergi melihat pertandingan sepak bola bersama?" },
+                    { word: "球", pinyin: "qiú", meaning: "bola", sentence: "桌子下面有一个红色的小___。", sentenceMeaning: "Di bawah meja ada sebuah bola kecil berwarna merah." },
+                    { word: "得", pinyin: "de", meaning: "partikel pelengkap tingkat", sentence: "他汉语说___很好。", sentenceMeaning: "Bahasa Mandarinnya diucapkan dengan sangat baik." },
+                    { word: "跑步", pinyin: "pǎobù", meaning: "berlari / joging", sentence: "我每天早上都去___。", sentenceMeaning: "Saya setiap pagi pergi joging." },
+                    { word: "游泳", pinyin: "yóuyǒng", meaning: "berenang", sentence: "夏天去___非常舒服。", sentenceMeaning: "Musim panas pergi berenang sangat nyaman." },
+                    { word: "游", pinyin: "yóu", meaning: "berenang", sentence: "他在水里___得很快。", sentenceMeaning: "Dia berenang sangat cepat di dalam air." },
+                    { word: "爱好", pinyin: "àihào", meaning: "hobi", sentence: "我的___是听音乐和看书。", sentenceMeaning: "Hobi saya adalah mendengarkan musik dan membaca buku." },
+                    { word: "开始", pinyin: "kāishǐ", meaning: "mulai", sentence: "八点钟我们要___上课了。", sentenceMeaning: "Jam 8 kita harus mulai masuk kelas." }
+                ]
+            },
+            {
+                lesson: 8, title: "虽然你忘了，但是我记得",
+                words: [
+                    { word: "手表", pinyin: "shǒubiǎo", meaning: "jam tangan", sentence: "这块新___是我买给你的。", sentenceMeaning: "Jam tangan baru ini adalah yang saya belikan untukmu." },
+                    { word: "左边", pinyin: "zuǒbian", meaning: "sebelah kiri", sentence: "坐在我___的人是小明。", sentenceMeaning: "Orang yang duduk di sebelah kiriku adalah Xiaoming." },
+                    { word: "左", pinyin: "zuǒ", meaning: "kiri", sentence: "往___拐就是大门了。", sentenceMeaning: "Belok ke kiri adalah pintu utamanya." },
+                    { word: "比", pinyin: "bǐ", meaning: "daripada (perbandingan)", sentence: "哥哥___弟弟高很多。", sentenceMeaning: "Kakak laki-laki jauh lebih tinggi daripada adik." },
+                    { word: "右边", pinyin: "yòubian", meaning: "sebelah kanan", sentence: "超市就在银行的___。", sentenceMeaning: "Supermarket ada di sebelah kanan bank." },
+                    { word: "右", pinyin: "yòu", meaning: "kanan", sentence: "请向___看，那里有一家书店。", sentenceMeaning: "Tolong lihat ke kanan, di sana ada sebuah toko buku." },
+                    { word: "记得", pinyin: "jìde", meaning: "ingat", sentence: "你还___他的名字吗？", sentenceMeaning: "Apakah kamu masih ingat namanya?" },
+                    { word: "爱情片", pinyin: "àiqíngpiàn", meaning: "film romantis", sentence: "姐姐最喜欢看___。", sentenceMeaning: "Kakak perempuan paling suka menonton film romantis." },
+                    { word: "有意思", pinyin: "yǒu yìsi", meaning: "menarik", sentence: "这本汉语书非常___。", sentenceMeaning: "Buku bahasa Mandarin ini sangat menarik." },
+                    { word: "点", pinyin: "diǎn", meaning: "jam / memilih (makanan)", sentence: "现在是早上八___半。", sentenceMeaning: "Sekarang adalah jam 8 lewat setengah pagi." },
+                    { word: "虽然", pinyin: "suīrán", meaning: "walaupun / meskipun", sentence: "___天气不好，但是我们还是去了。", sentenceMeaning: "Walaupun cuaca tidak bagus, tetapi kami tetap pergi." },
+                    { word: "但是", pinyin: "dànshì", meaning: "tetapi", sentence: "他很高，___跑得不快。", sentenceMeaning: "Dia sangat tinggi, tetapi berlari tidak cepat." },
+                    { word: "花", pinyin: "huā", meaning: "bunga / menghabiskan", sentence: "桌子上放着一朵红色的___。", sentenceMeaning: "Di atas meja tergeletak sebatang bunga merah." },
+                    { word: "妻子", pinyin: "qīzi", meaning: "istri", sentence: "那是王先生和他的___。", sentenceMeaning: "Itu adalah Tuan Wang dan istrinya." },
+                    { word: "丈夫", pinyin: "zhàngfu", meaning: "suami", sentence: "她的___在医院工作，是一位医生。", sentenceMeaning: "Suaminya bekerja di rumah sakit, seorang dokter." },
+                    { word: "饭馆", pinyin: "fànguǎn", meaning: "restoran", sentence: "这家___的菜很好吃。", sentenceMeaning: "Masakan di restoran ini sangat enak." }
+                ]
+            },
+            {
+                lesson: 9, title: "我去买杯奶茶",
+                words: [
+                    { word: "坏", pinyin: "huài", meaning: "rusak / buruk", sentence: "我的手机___了，不能打电话。", sentenceMeaning: "HP saya rusak, tidak bisa menelpon." },
+                    { word: "旁边", pinyin: "pángbiān", meaning: "samping", sentence: "学校___有一个漂亮的公园。", sentenceMeaning: "Samping sekolah ada sebuah taman yang indah." },
+                    { word: "男孩儿", pinyin: "nánháir", meaning: "anak laki-laki", sentence: "那个跑步的___是我弟弟。", sentenceMeaning: "Anak laki-laki yang sedang berlari itu adalah adikku." },
+                    { word: "这样", pinyin: "zhèyàng", meaning: "seperti ini", sentence: "___写汉字是对的。", sentenceMeaning: "Menulis aksara Han seperti ini adalah benar." },
+                    { word: "个子", pinyin: "gèzi", meaning: "perawakan / tinggi badan", sentence: "他的___很高，打篮球打得很好。", sentenceMeaning: "Tinggi badannya sangat tinggi, main basketnya sangat jago." },
+                    { word: "那么", pinyin: "nàme", meaning: "begitu / sebegitu", sentence: "那个西瓜___大，吃得完吗？", sentenceMeaning: "Semangka itu begitu besar, apakah bisa habis dimakan?" },
+                    { word: "高", pinyin: "gāo", meaning: "tinggi", sentence: "这座山非常___，爬上去很累。", sentenceMeaning: "Gunung ini sangat tinggi, mendaki ke atas sangat lelah." },
+                    { word: "门口", pinyin: "ménkǒu", meaning: "pintu masuk / depan pintu", sentence: "我在学校___等你。", sentenceMeaning: "Saya menunggumu di depan pintu masuk sekolah." },
+                    { word: "咖啡", pinyin: "kāfēi", meaning: "kopi", sentence: "早上我喜欢喝一杯热___。", sentenceMeaning: "Pagi hari saya suka minum segelas kopi panas." },
+                    { word: "离", pinyin: "lí", meaning: "berjarak dari", sentence: "我家___公司很近，走路十分钟。", sentenceMeaning: "Rumah saya berjarak sangat dekat dari perusahaan, jalan kaki 10 menit." },
+                    { word: "近", pinyin: "jìn", meaning: "dekat", sentence: "超市离这里很___。", sentenceMeaning: "Supermarket berjarak sangat dekat dari sini." },
+                    { word: "走", pinyin: "zǒu", meaning: "berjalan / pergi", sentence: "时间到了，我们快___吧。", sentenceMeaning: "Waktunya sampai, mari kita cepat jalan." },
+                    { word: "走路", pinyin: "zǒulù", meaning: "berjalan kaki", sentence: "我每天___去学校。", sentenceMeaning: "Saya setiap hari berjalan kaki ke sekolah." },
+                    { word: "周", pinyin: "zhōu", meaning: "minggu", sentence: "下一___我们要考试了。", sentenceMeaning: "Minggu depan kita harus ujian." }
+                ]
+            },
+            {
+                lesson: 10, title: "就要开始了",
+                words: [
+                    { word: "开学", pinyin: "kāixué", meaning: "masuk sekolah / semester baru", sentence: "下个周一我们就要___了。", sentenceMeaning: "Hari Senin depan kami akan mulai masuk sekolah." },
+                    { word: "门", pinyin: "mén", meaning: "pintu", sentence: "请把___关上，外面冷。", sentenceMeaning: "Tolong tutup pintunya, di luar dingin." },
+                    { word: "后面", pinyin: "hòumiàn", meaning: "bagian belakang", sentence: "坐在我___的那个人是谁？", sentenceMeaning: "Orang yang duduk di belakangku itu siapa?" },
+                    { word: "笔", pinyin: "bǐ", meaning: "pena / pensil", sentence: "请借我一支红___用一下。", sentenceMeaning: "Tolong pinjami saya sebatang pena merah untuk dipakai sebentar." },
+                    { word: "帮", pinyin: "bāng", meaning: "membantu", sentence: "你可以___我拿一下那本书吗？", sentenceMeaning: "Bisakah kamu membantuku mengambilkan buku itu?" },
+                    { word: "考试", pinyin: "kǎoshì", meaning: "ujian", sentence: "明天的汉语___难不难？", sentenceMeaning: "Ujian bahasa Mandarin besok sulit tidak?" },
+                    { word: "词", pinyin: "cí", meaning: "kata / kosakata", sentence: "这个生___是什么意思？", sentenceMeaning: "Kosakata baru ini apa artinya?" },
+                    { word: "本子", pinyin: "běnzi", meaning: "buku catatan", sentence: "我把生词写在新的___上了。", sentenceMeaning: "Saya menuliskan kosakata baru di buku catatan yang baru." },
+                    { word: "错", pinyin: "cuò", meaning: "salah", sentence: "这道题我做___了。", sentenceMeaning: "Soal ini saya salah mengerjakannya." },
+                    { word: "题", pinyin: "tí", meaning: "soal / pertanyaan", sentence: "这次考试共有十道___。", sentenceMeaning: "Ujian kali ini total ada 10 soal." },
+                    { word: "还是", pinyin: "háishì", meaning: "atau (kalimat tanya)", sentence: "你想喝茶___喝咖啡？", sentenceMeaning: "Kamu ingin minum teh atau minum kopi?" },
+                    { word: "考", pinyin: "kǎo", meaning: "menguji / tes", sentence: "明天要___听力和阅读。", sentenceMeaning: "Besok akan menguji listening dan reading." },
+                    { word: "快要", pinyin: "kuàiyào", meaning: "segera / hampir", sentence: "电影___开始了，快坐下吧。", sentenceMeaning: "Film hampir dimulai, cepatlah duduk." },
+                    { word: "笑", pinyin: "xiào", meaning: "tertawa / tersenyum", sentence: "老师笑着对我___了___。", sentenceMeaning: "Guru tersenyum padaku." }
+                ]
+            },
+            {
+                lesson: 11, title: "我最喜欢吃中国菜",
+                words: [
+                    { word: "头", pinyin: "tóu", meaning: "kepala", sentence: "我今天不舒服，___有点疼。", sentenceMeaning: "Saya hari ini kurang sehat, kepala agak sakit." },
+                    { word: "疼", pinyin: "téng", meaning: "sakit", sentence: "生病的时候，身体会感到___。", sentenceMeaning: "Saat sakit, tubuh bisa merasa sakit." },
+                    { word: "经常", pinyin: "jīngcháng", meaning: "sering", sentence: "我___去图书馆看书。", sentenceMeaning: "Saya sering pergi ke perpustakaan membaca buku." },
+                    { word: "动", pinyin: "dòng", meaning: "bergerak", sentence: "太累了，我不想___了。", sentenceMeaning: "Terlalu lelah, saya tidak ingin bergerak lagi." },
+                    { word: "着", pinyin: "zhe", meaning: "partikel berlangsung (sedang)", sentence: "门开___，你可以直接进来。", sentenceMeaning: "Pintu sedang terbuka, kamu bisa langsung masuk." },
+                    { word: "路上", pinyin: "lùshang", meaning: "di jalan", sentence: "早上___的车非常多。", sentenceMeaning: "Mobil di jalanan pada pagi hari sangat banyak." },
+                    { word: "慢", pinyin: "màn", meaning: "pelan / lambat", sentence: "请你说___一点，我听不懂。", sentenceMeaning: "Tolong kamu bicara lebih pelan sedikit, saya tidak paham." },
+                    { word: "进", pinyin: "jìn", meaning: "masuk", sentence: "请___，里面坐吧。", sentenceMeaning: "Silakan masuk, duduklah di dalam." },
+                    { word: "药", pinyin: "yào", meaning: "obat", sentence: "生病了要按时吃___。", sentenceMeaning: "Kalau sakit harus makan obat tepat waktu." },
+                    { word: "身体", pinyin: "shēntǐ", meaning: "tubuh / kesehatan", sentence: "多运动对___很好。", sentenceMeaning: "Banyak berolahraga sangat baik untuk tubuh." },
+                    { word: "时", pinyin: "shí", meaning: "saat / ketika", sentence: "生病___要多喝水、多休息。", sentenceMeaning: "Saat sakit harus banyak minum air dan banyak istirahat." },
+                    { word: "最", pinyin: "zuì", meaning: "paling", sentence: "我___喜欢吃妈妈做的菜。", sentenceMeaning: "Saya paling suka makan masakan yang dibuat ibu." },
+                    { word: "药店", pinyin: "yàodiàn", meaning: "toko obat / apotek", sentence: "我去___买点感冒药。", sentenceMeaning: "Saya pergi ke apotek membeli sedikit obat flu." }
+                ]
+            },
+            {
+                lesson: 12, title: "这里比北京冷得多",
+                words: [
+                    { word: "事情", pinyin: "shìqing", meaning: "urusan / hal", sentence: "今天我有很重要的___要做。", sentenceMeaning: "Hari ini saya ada urusan sangat penting yang harus dilakukan." },
+                    { word: "晴", pinyin: "qíng", meaning: "cerah", sentence: "今天是___天，太阳很好。", sentenceMeaning: "Hari ini adalah hari yang cerah, matahari sangat bagus." },
+                    { word: "正", pinyin: "zhèng", meaning: "sedang (aktivitas)", sentence: "我们___在吃晚饭呢。", sentenceMeaning: "Kami sedang makan malam." },
+                    { word: "外面", pinyin: "wàimiàn", meaning: "bagian luar", sentence: "___下起了大雪，非常冷。", sentenceMeaning: "Di luar turun salju tebal, sangat dingin." },
+                    { word: "阴", pinyin: "yīn", meaning: "mendung", sentence: "天___了，可能快要下雨了。", sentenceMeaning: "Langit mendung, mungkin sebentar lagi turun hujan." },
+                    { word: "从小", pinyin: "cóngxiǎo", meaning: "sejak kecil", sentence: "他___就喜欢踢足球。", sentenceMeaning: "Dia sejak kecil sudah suka bermain sepak bola." },
+                    { word: "地铁", pinyin: "dìtiě", meaning: "kereta bawah tanah", sentence: "坐___去公司很快也很方便。", sentenceMeaning: "Naik kereta bawah tanah pergi ke perusahaan sangat cepat dan juga praktis." },
+                    { word: "楼", pinyin: "lóu", meaning: "lantai / gedung", sentence: "我家住在三___。", sentenceMeaning: "Rumah saya di lantai 3." },
+                    { word: "站", pinyin: "zhàn", meaning: "berdiri / stasiun", sentence: "下一___就是北京大学了。", sentenceMeaning: "Stasiun berikutnya adalah Universitas Beijing." },
+                    { word: "小时候", pinyin: "xiǎoshíhou", meaning: "sewaktu kecil", sentence: "我___住在南方的一个小城市。", sentenceMeaning: "Saya sewaktu kecil tinggal di sebuah kota kecil di selatan." },
+                    { word: "好", pinyin: "hǎo", meaning: "sangat / baik", sentence: "这里比北京冷得___！", sentenceMeaning: "Di sini jauh lebih dingin dari Beijing!" }
+                ]
+            },
+            {
+                lesson: 13, title: "我们爱上中文课",
+                words: [
+                    { word: "新年", pinyin: "xīnnián", meaning: "tahun baru", sentence: "祝你___快乐，身体健康！", sentenceMeaning: "Selamat tahun baru untukmu, semoga sehat selalu!" },
+                    { word: "教", pinyin: "jiāo", meaning: "mengajar", sentence: "王老师___我们中文。", sentenceMeaning: "Guru Wang mengajari kami bahasa Mandarin." },
+                    { word: "花", pinyin: "huā", meaning: "menghabiskan (uang/waktu)", sentence: "买这件衣服___了一百块钱。", sentenceMeaning: "Membeli baju ini menghabiskan uang 100 Yuan." },
+                    { word: "希望", pinyin: "xīwàng", meaning: "berharap / semoga", sentence: "我___明天是个好天气。", sentenceMeaning: "Saya berharap besok adalah cuaca yang bagus." },
+                    { word: "上面", pinyin: "shàngmiàn", meaning: "bagian atas", sentence: "桌子___放着很多书。", sentenceMeaning: "Di atas meja meletakkan/terdapat banyak buku." },
+                    { word: "洗手间", pinyin: "xǐshǒujiān", meaning: "toilet / kamar mandi", sentence: "请问，___在哪里？", sentenceMeaning: "Permisi, toilet ada di mana?" },
+                    { word: "里面", pinyin: "lǐmiàn", meaning: "bagian dalam", sentence: "房间___有很多学生在听课。", sentenceMeaning: "Di dalam kamar ada banyak murid sedang mendengarkan pelajaran." },
+                    { word: "笔", pinyin: "bǐ", meaning: "alat tulis / pensil", sentence: "你的黑___放在桌子上了。", sentenceMeaning: "Pena hitammu tergeletak di atas meja." },
+                    { word: "可能", pinyin: "kěnéng", meaning: "mungkin", sentence: "明天___会下大雨。", sentenceMeaning: "Besok mungkin bisa turun hujan deras." },
+                    { word: "上网", pinyin: "shàngwǎng", meaning: "mengakses internet / online", sentence: "晚上我喜欢用电脑___看新闻。", sentenceMeaning: "Malam hari saya suka menggunakan komputer untuk browsing berita." },
+                    { word: "那样", pinyin: "nàyàng", meaning: "seperti itu", sentence: "像他___做是对的。", sentenceMeaning: "Melakukan seperti dia itu adalah benar." },
+                    { word: "告诉", pinyin: "gàosu", meaning: "memberitahu", sentence: "请___我你的手机号码。", sentenceMeaning: "Tolong beri tahu saya nomor HP-mu." },
+                    { word: "班", pinyin: "bān", meaning: "kelas (kelompok murid)", sentence: "我们___有十五个留学生。", sentenceMeaning: "Kelas kami ada 15 orang mahasiswa asing." }
+                ]
+            },
+            {
+                lesson: 14, title: "一个人过年多没意思啊",
+                words: [
+                    { word: "站", pinyin: "zhàn", meaning: "berdiri", sentence: "请大家___起来迎接入场的客人。", sentenceMeaning: "Tolong semuanya berdiri menyambut tamu yang masuk." },
+                    { word: "包", pinyin: "bāo", meaning: "tas", sentence: "这个黑色的___是你的吗？", sentenceMeaning: "Apakah tas hitam ini milikmu?" },
+                    { word: "过年", pinyin: "guònián", meaning: "merayakan tahun baru Imlek", sentence: "今年你回家___吗？", sentenceMeaning: "Tahun ini apakah kamu pulang ke rumah merayakan Imlek?" },
+                    { word: "没意思", pinyin: "méi yìsi", meaning: "membosankan / tak menarik", sentence: "一个人在家看电视真___。", sentenceMeaning: "Sendirian di rumah menonton TV sungguh membosankan." },
+                    { word: "位", pinyin: "wèi", meaning: "orang (sopan/penggolong)", sentence: "这___是我的中文老师。", sentenceMeaning: "Orang ini adalah guru bahasa Mandarin saya." },
+                    { word: "前面", pinyin: "qiánmiàn", meaning: "bagian depan", sentence: "走在最___的那个人是我哥哥。", sentenceMeaning: "Orang yang berjalan paling depan itu adalah kakak laki-laki saya." },
+                    { word: "房间", pinyin: "fángjiān", meaning: "kamar / ruangan", sentence: "我的___很大也很干净。", sentenceMeaning: "Kamar saya sangat besar dan juga bersih." },
+                    { word: "小孩儿", pinyin: "xiǎoháir", meaning: "anak-anak", sentence: "公园里有很多___在玩乐。", sentenceMeaning: "Di taman ada banyak anak-anak sedang bermain gembira." },
+                    { word: "女孩儿", pinyin: "nǚháir", meaning: "anak perempuan / gadis", sentence: "那个唱歌的___真好看。", sentenceMeaning: "Anak perempuan yang bernyanyi itu sungguh cantik." },
+                    { word: "姓", pinyin: "xìng", meaning: "marga / bermarga", sentence: "我的老师___王，名叫明。", sentenceMeaning: "Guru saya bermarga Wang, bernama Ming." },
+                    { word: "眼睛", pinyin: "yǎnjing", meaning: "mata", sentence: "妹妹的___大大的，非常可爱。", sentenceMeaning: "Mata adik perempuan besar-besar, sangat imut." },
+                    { word: "跳舞", pinyin: "tiàowǔ", meaning: "menari", sentence: "她很喜欢在舞台上___。", sentenceMeaning: "Dia sangat suka menari di atas panggung." }
+                ]
+            },
+            {
+                lesson: 15, title: "我想再去一次中国",
+                words: [
+                    { word: "姓名", pinyin: "xìngmíng", meaning: "nama lengkap", sentence: "请在这里写下你的___。", sentenceMeaning: "Tolong tuliskan nama lengkapmu di sini." },
+                    { word: "出国", pinyin: "chūguó", meaning: "pergi ke luar negeri", sentence: "哥哥打算明年___去留学。", sentenceMeaning: "Kakak laki-laki berencana tahun depan pergi ke luar negeri untuk kuliah." },
+                    { word: "门票", pinyin: "ménpiào", meaning: "tiket masuk", sentence: "公园的___一张二十块钱。", sentenceMeaning: "Tiket masuk taman selembar 20 Yuan." },
+                    { word: "高中", pinyin: "gāozhōng", meaning: "SMA", sentence: "我和他从___开始就是好朋友。", sentenceMeaning: "Saya dan dia sejak SMA sudah menjadi teman baik." },
+                    { word: "出门", pinyin: "chūmén", meaning: "pergi keluar rumah", sentence: "今天下雨，___记得带伞。", sentenceMeaning: "Hari ini hujan, keluar rumah ingat membawa payung." },
+                    { word: "路", pinyin: "lù", meaning: "jalan", sentence: "这条___上有很多餐厅。", sentenceMeaning: "Di jalanan ini ada banyak restoran." },
+                    { word: "颐和园", pinyin: "Yíhéyuán", meaning: "Istana Musim Panas (Summer Palace)", sentence: "去北京旅游一定要去___。", sentenceMeaning: "Jalan-jalan ke Beijing harus pergi ke Summer Palace." },
+                    { word: "机场", pinyin: "jīchǎng", meaning: "bandara", sentence: "我们坐出租车去___接人。", sentenceMeaning: "Kami naik taksi pergi ke bandara menjemput orang." },
+                    { word: "机票", pinyin: "jīpiào", meaning: "tiket pesawat", sentence: "我已经在网上买好了来回___。", sentenceMeaning: "Saya sudah membeli tiket pesawat pulang pergi di internet." },
+                    { word: "飞", pinyin: "fēi", meaning: "terbang", sentence: "小鸟在蓝色的天空里___。", sentenceMeaning: "Burung kecil terbang di langit biru." },
+                    { word: "好像", pinyin: "hǎoxiàng", meaning: "sepertinya / mirip", sentence: "外面___下雨了，听听声音。", sentenceMeaning: "Di luar sepertinya turun hujan, dengarkan suaranya." },
+                    { word: "鸟", pinyin: "niǎo", meaning: "burung", sentence: "树上有一只可爱的小___在叫。", sentenceMeaning: "Di atas pohon ada seekor burung kecil imut sedang berkicau." }
+                ]
+            }
+        ];
+
+        // --- GAME STATE ---
+        let currentLesson = null;
+        let currentQuestions = [];
+        let score = 0;
+        let wrongCount = 0;
+        let timeRemaining = 0;
+        let timerInterval;
+        let gameState = 'menu'; // 'menu', 'playing', 'checking', 'result', 'review'
+        
+        let userAnswers = [];
+        let activeBlankIndex = null;
+        let shuffledAvailableWordsCache = []; // To maintain shuffled order across re-renders
+        
+        // Dynamic Colorful Backgrounds
+        const bgGradients = [
+            'from-pink-200 to-rose-300',
+            'from-sky-200 to-blue-300',
+            'from-emerald-200 to-teal-300',
+            'from-amber-200 to-orange-300',
+            'from-purple-200 to-fuchsia-300',
+            'from-cyan-200 to-indigo-300'
+        ];
+
+        function setAppBackground(index) {
+            const baseClasses = "notranslate text-slate-800 flex flex-col min-h-screen font-sans overflow-hidden bg-gradient-to-br ";
+            const gradient = index === -1 ? "from-indigo-100 to-purple-200" : bgGradients[index % bgGradients.length];
+            document.body.className = baseClasses + gradient;
+        }
+        
+        // Tone.js Synths
+        let synth, failSynth;
+
+        // DOM Elements
+        const gameContainer = document.getElementById('game-container');
+        const warningModal = document.getElementById('warning-modal');
+
+        // --- ANTI-CHEAT MECHANISMS ---
+        
+        // Disable shortcuts (Copy, Paste, PrintScreen)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'p')) || 
+                e.key === 'F12' || 
+                e.key === 'PrintScreen') {
+                e.preventDefault();
+                showWarning();
+            }
+        });
+
+        // Detect tab switching or window losing focus
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && gameState === 'playing') {
+                showWarning();
+            }
+        });
+        window.addEventListener('blur', () => {
+            if (gameState === 'playing') {
+                showWarning();
+            }
+        });
+
+        function showWarning() {
+            if(gameState === 'playing') {
+                warningModal.classList.remove('hidden');
+            }
+        }
+
+        function dismissWarning(forceExit) {
+            warningModal.classList.add('hidden');
+            if (forceExit && gameState === 'playing') {
+                submitQuiz(true); // true means forced exit
+            }
+        }
+
+        // --- AUDIO FUNCTIONS ---
+        async function initAudio() {
+            if (!synth) {
+                await Tone.start();
+                synth = new Tone.Synth({
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 1 }
+                }).toDestination();
+                
+                failSynth = new Tone.Synth({
+                    oscillator: { type: 'sawtooth' },
+                    envelope: { attack: 0.05, decay: 0.2, sustain: 0, release: 0.2 }
+                }).toDestination();
+            }
+        }
+
+        function playCorrectSound() {
+            if(synth) synth.triggerAttackRelease("C6", "16n");
+        }
+
+        function playWrongSound() {
+            if(failSynth) failSynth.triggerAttackRelease("G3", "8n");
+        }
+
+        function playFinishSound(goodScore) {
+            if (!synth) return;
+            const now = Tone.now();
+            if (goodScore) {
+                synth.triggerAttackRelease("C5", "8n", now);
+                synth.triggerAttackRelease("E5", "8n", now + 0.2);
+                synth.triggerAttackRelease("G5", "4n", now + 0.4);
+                synth.triggerAttackRelease("C6", "2n", now + 0.6);
+            } else {
+                failSynth.triggerAttackRelease("C4", "4n", now);
+                failSynth.triggerAttackRelease("F#3", "4n", now + 0.3);
+                failSynth.triggerAttackRelease("C3", "2n", now + 0.6);
+            }
+        }
+
+        // --- UTILITY FUNCTIONS ---
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // --- UI RENDERING ---
+
+        function renderMainMenu() {
+            gameState = 'menu';
+            setAppBackground(-1); // Reset to default bright theme
+            let html = `
+                <div class="flex flex-col h-full items-center justify-center p-6 animate-fade-in w-full">
+                    <h1 class="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-4 drop-shadow-sm text-center">HSK 2 词汇挑战</h1>
+                    <p class="text-slate-600 mb-8 max-w-2xl text-center text-sm md:text-base leading-relaxed font-medium">
+                        Pilih bab untuk memulai kuis. <strong>Jodohkan kata</strong> yang tepat untuk melengkapi semua kalimat sebelum waktu habis.<br>
+                        <span class="text-red-500 font-bold bg-red-50 px-2 py-1 rounded-md inline-block mt-2 border border-red-200">Dilarang keluar halaman, curang, atau berpindah tab!</span>
+                    </p>
+                    <div class="w-full max-w-5xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            `;
+            
+            quizData.forEach((lesson, index) => {
+                const btnColors = [
+                    'bg-pink-100 hover:bg-pink-200 border-pink-300 text-pink-800',
+                    'bg-blue-100 hover:bg-blue-200 border-blue-300 text-blue-800',
+                    'bg-emerald-100 hover:bg-emerald-200 border-emerald-300 text-emerald-800',
+                    'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-800',
+                    'bg-purple-100 hover:bg-purple-200 border-purple-300 text-purple-800'
+                ];
+                const colorClass = btnColors[index % btnColors.length];
+
+                html += `
+                    <button onclick="startLesson(${index})" 
+                            class="${colorClass} border font-semibold py-3 px-3 rounded-xl transition duration-200 transform hover:-translate-y-1 hover:shadow-lg shadow-sm flex flex-col items-center group">
+                        <span class="text-lg font-black mb-1 drop-shadow-sm">Bab ${lesson.lesson}</span>
+                        <span class="text-xs truncate w-full text-center opacity-80 font-medium">${lesson.title}</span>
+                        <span class="text-[10px] bg-white/60 px-2 py-1 rounded-full mt-2 font-bold group-hover:bg-white/80 transition-colors">${lesson.words.length} Kata</span>
+                    </button>
+                `;
+            });
+
+            html += `</div></div>`;
+            gameContainer.innerHTML = html;
+        }
+
+        async function startLesson(lessonIndex) {
+            await initAudio(); 
+            
+            currentLesson = quizData[lessonIndex];
+            setAppBackground(lessonIndex);
+            
+            currentQuestions = shuffleArray(currentLesson.words).map(w => ({
+                answer: w.word,
+                sentence: w.sentence,
+                pinyin: w.pinyin,
+                meaning: w.meaning,
+                sentenceMeaning: w.sentenceMeaning
+            }));
+            
+            userAnswers = new Array(currentQuestions.length).fill(null);
+            activeBlankIndex = null;
+            
+            const allWords = currentQuestions.map(q => q.answer);
+            shuffledAvailableWordsCache = shuffleArray([...allWords]);
+            
+            score = 0;
+            wrongCount = 0;
+            timeRemaining = currentQuestions.length * 10; 
+            gameState = 'playing';
+            
+            renderQuiz();
+            startTimer();
+        }
+
+        function renderQuiz() {
+            if (gameState !== 'playing' && gameState !== 'checking') return;
+
+            const availableWords = shuffledAvailableWordsCache.filter(w => !userAnswers.includes(w));
+
+            let sentencesHtml = currentQuestions.map((q, i) => {
+                const formattedSentence = q.sentence.split('___');
+                const isFilled = userAnswers[i] !== null;
+                const wordInSlot = userAnswers[i] || '____';
+                const isActive = activeBlankIndex === i;
+                
+                let slotClass = "inline-flex items-center justify-center min-w-[4rem] px-3 py-1 mx-1 border-b-2 font-bold cursor-pointer blank-slot rounded-t-md shadow-inner ";
+                
+                if (gameState === 'playing') {
+                    slotClass += isActive ? 'border-amber-400 text-amber-700 bg-amber-100 shadow-amber-200' : 
+                                 isFilled ? 'border-blue-500 text-blue-700 bg-blue-100 hover:bg-rose-100 hover:border-rose-400 hover:text-rose-600' : 
+                                 'border-slate-400 text-slate-400 bg-slate-50 hover:border-blue-300 hover:bg-blue-50';
+                } else {
+                    slotClass += ' border-slate-300 text-slate-500 bg-slate-100'; 
+                }
+
+                const onClickHandler = gameState === 'playing' ? 'onclick="handleBlankClick(' + i + ')"' : '';
+                const titleText = isFilled && gameState === 'playing' ? 'Klik untuk menghapus kata' : 'Klik untuk memilih slot ini';
+
+                return '<div class="sentence-row text-lg md:text-xl font-medium tracking-wide bg-white/70 hover:bg-white/95 shadow-sm p-4 rounded-xl border border-white flex items-center flex-wrap transition-all duration-200" id="row-' + i + '">' +
+                            '<span class="mr-3 text-sm text-slate-400 font-black w-6 text-right">' + (i + 1) + '.</span>' +
+                            '<span class="text-slate-700">' + formattedSentence[0] + '</span>' +
+                            '<div id="slot-' + i + '" class="' + slotClass + '" ' + onClickHandler + ' title="' + titleText + '">' +
+                                wordInSlot +
+                            '</div>' +
+                            '<span class="text-slate-700">' + formattedSentence[1] + '</span>' +
+                        '</div>';
+            }).join('');
+
+            let wordsHtml = '';
+            if (gameState === 'playing') {
+                wordsHtml = availableWords.map(word => 
+                    '<button onclick="handleWordClick(\'' + word + '\')" class="py-2.5 px-2 text-center bg-white hover:bg-blue-50 border-2 border-slate-200 hover:border-blue-400 rounded-xl text-lg font-bold transition duration-150 shadow-sm hover:shadow active:scale-95 text-slate-700">' +
+                        word +
+                    '</button>'
+                ).join('');
+            } else {
+                wordsHtml = '<div class="col-span-full text-center text-slate-500 mt-10 font-medium animate-pulse">Memeriksa jawaban...</div>';
+            }
+
+            const headerHtml = '<div class="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/60 flex items-center justify-between px-6 shrink-0 shadow-sm z-10">' +
+                '<div class="text-slate-500 font-bold truncate mr-4 flex items-center">' +
+                    '<span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm mr-3">Bab ' + currentLesson.lesson + '</span>' + 
+                    '<span class="text-slate-800">' + currentLesson.title + '</span>' +
+                '</div>' +
+                '<div class="flex items-center space-x-4 shrink-0">' +
+                    '<div id="timer-display" class="px-4 py-1.5 rounded-full bg-slate-100 font-mono text-xl font-black border-2 ' + (timeRemaining <= 10 ? 'time-warning text-red-600 border-red-500 bg-red-50' : 'text-blue-600 border-blue-200') + '">' +
+                        formatTime(timeRemaining) +
+                    '</div>' +
+                    '<button onclick="submitQuiz(false)" class="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold py-2 px-6 rounded-full transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5 ' + (gameState === 'checking' ? 'hidden' : '') + '">' +
+                        'Kumpul' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
+
+            const instructionHtml = gameState === 'playing' ? 
+                '<div class="text-xs text-center text-slate-500 mb-4 bg-white/60 p-2.5 rounded-lg border border-slate-200 font-medium shadow-inner">' +
+                    'Pilih kata dari daftar untuk mengisi kalimat. Klik kata pada kalimat untuk membatalkan.' +
+                '</div>' : '';
+
+            let html = headerHtml +
+                '<div class="flex flex-col md:flex-row flex-grow overflow-hidden relative">' +
+                    '<div class="w-full md:w-2/3 h-1/2 md:h-full overflow-y-auto p-4 md:p-6 bg-slate-50/50 custom-scrollbar border-b md:border-b-0 md:border-r border-slate-200/60">' +
+                        '<div class="space-y-4 max-w-3xl mx-auto pb-12">' + sentencesHtml + '</div>' +
+                    '</div>' +
+                    '<div class="w-full md:w-1/3 h-1/2 md:h-full flex flex-col bg-white/40 backdrop-blur-sm p-4 md:p-5">' +
+                        '<div class="flex justify-between items-center border-b border-slate-300 pb-2 mb-3">' + 
+                            '<h3 class="text-slate-600 font-black uppercase text-sm tracking-wider">Pilihan Kata</h3>' +
+                            '<span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">' + availableWords.length + ' Sisa</span>' +
+                        '</div>' +
+                        instructionHtml +
+                        '<div class="flex-grow overflow-y-auto custom-scrollbar content-start">' +
+                            '<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">' + wordsHtml + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+                
+            gameContainer.innerHTML = html;
+        }
+
+        // --- INTERACTION LOGIC ---
+
+        function handleBlankClick(index) {
+            if (gameState !== 'playing') return;
+
+            if (userAnswers[index] !== null) {
+                userAnswers[index] = null;
+                activeBlankIndex = index;
+            } else {
+                activeBlankIndex = index;
+            }
+            renderQuiz();
+        }
+
+        function handleWordClick(word) {
+            if (gameState !== 'playing') return;
+
+            if (activeBlankIndex !== null && userAnswers[activeBlankIndex] === null) {
+                userAnswers[activeBlankIndex] = word;
+                activeBlankIndex = null; 
+            } else {
+                const firstEmpty = userAnswers.indexOf(null);
+                if (firstEmpty !== -1) {
+                    userAnswers[firstEmpty] = word;
+                } else {
+                    return;
+                }
+            }
+            
+            if(activeBlankIndex === null) {
+                 const nextEmpty = userAnswers.indexOf(null);
+                 activeBlankIndex = nextEmpty !== -1 ? nextEmpty : null;
+            }
+
+            renderQuiz();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+                
+                if (timeRemaining <= 0) {
+                    submitQuiz(false);
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const timerEl = document.getElementById('timer-display');
+            if (timerEl) {
+                timerEl.textContent = formatTime(timeRemaining);
+                if (timeRemaining <= 10 && !timerEl.classList.contains('time-warning')) {
+                    timerEl.classList.add('time-warning', 'text-white', 'border-red-500');
+                    timerEl.classList.remove('text-blue-400');
+                }
+            }
+        }
+
+        function formatTime(seconds) {
+            if(seconds < 0) seconds = 0;
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // --- SCORING & STAGGERED ANIMATIONS ---
+
+        async function submitQuiz(isForcedExit) {
+            if (gameState !== 'playing') return;
+            clearInterval(timerInterval);
+            gameState = 'checking';
+            renderQuiz();
+
+            score = 0;
+            wrongCount = 0;
+
+            if (isForcedExit) {
+                for (let i = 0; i < currentQuestions.length; i++) {
+                    if (userAnswers[i] === currentQuestions[i].answer) score++;
+                    else wrongCount++;
+                }
+                showFinalScore(true);
+                return;
+            }
+
+            for (let i = 0; i < currentQuestions.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, 250));
+                
+                const rowEl = document.getElementById(`row-${i}`);
+                const slotEl = document.getElementById(`slot-${i}`);
+                const isCorrect = userAnswers[i] === currentQuestions[i].answer;
+
+                if (isCorrect) {
+                    score++;
+                    playCorrectSound();
+                    if(rowEl && slotEl) {
+                        rowEl.classList.replace('bg-white/70', 'bg-green-50');
+                        rowEl.classList.replace('border-white', 'border-green-200');
+                        slotEl.classList.remove('border-slate-400', 'text-slate-400', 'bg-slate-50', 'border-slate-300', 'text-slate-500');
+                        slotEl.classList.add('text-green-700', 'border-green-400', 'bg-green-100', 'animate-bounce', 'shadow-sm');
+                    }
+                } else {
+                    wrongCount++;
+                    playWrongSound();
+                    if(rowEl && slotEl) {
+                        rowEl.classList.replace('bg-white/70', 'bg-red-50');
+                        rowEl.classList.replace('border-white', 'border-red-200');
+                        slotEl.classList.remove('border-slate-400', 'text-slate-400', 'bg-slate-50', 'border-slate-300', 'text-slate-500');
+                        slotEl.classList.add('text-red-700', 'border-red-400', 'bg-red-100', 'animate-shake', 'shadow-sm');
+                        
+                        if (userAnswers[i] !== null) {
+                            slotEl.innerHTML = `<span class="line-through opacity-50 mr-2 text-sm text-slate-500">${userAnswers[i]}</span>${currentQuestions[i].answer}`;
+                        } else {
+                             slotEl.innerHTML = `${currentQuestions[i].answer}`;
+                        }
+                    }
+                }
+                
+                if (rowEl) {
+                    rowEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }
+            }
+
+            setTimeout(() => {
+                showFinalScore(false);
+            }, 1500);
+        }
+
+        function showFinalScore(isForcedExit) {
+            gameState = 'result';
+            const totalQuestions = currentQuestions.length;
+            const percentage = Math.round((score / totalQuestions) * 100);
+            
+            playFinishSound(percentage >= 60);
+
+            let message = "";
+            let colorClass = "";
+            let bgClass = "";
+
+            if (percentage === 100) {
+                message = "Sempurna! Luar biasa.";
+                colorClass = "text-green-600";
+                bgClass = "bg-green-50 border-green-200";
+            } else if (percentage >= 80) {
+                message = "Sangat Baik!";
+                colorClass = "text-blue-600";
+                bgClass = "bg-blue-50 border-blue-200";
+            } else if (percentage >= 60) {
+                message = "Cukup baik, teruslah berlatih.";
+                colorClass = "text-amber-600";
+                bgClass = "bg-amber-50 border-amber-200";
+            } else {
+                message = "Perlu banyak belajar lagi.";
+                colorClass = "text-red-600";
+                bgClass = "bg-red-50 border-red-200";
+            }
+
+            if (isForcedExit) {
+                message = "Kuis diakhiri karena pelanggaran (keluar tab/halaman)!";
+                colorClass = "text-red-600";
+                bgClass = "bg-red-50 border-red-200";
+            } else if (timeRemaining <= 0) {
+                message += " (Waktu Habis)";
+            }
+
+            let html = `
+                <div class="flex flex-col items-center justify-center h-full w-full animate-fade-in text-center p-6 bg-white/40 backdrop-blur-sm">
+                    <h2 class="text-4xl md:text-5xl font-black mb-6 ${colorClass} drop-shadow-sm">${isForcedExit ? 'Kuis Dihentikan' : 'Hasil Kuis Bab ' + currentLesson.lesson}</h2>
+                    
+                    <div class="${bgClass} p-8 rounded-3xl shadow-xl mb-6 w-full max-w-md border-2">
+                        <div class="text-slate-500 text-sm mb-2 uppercase tracking-widest font-black">Persentase</div>
+                        <div class="text-7xl font-black ${colorClass} mb-6 drop-shadow-md">${percentage}%</div>
+                        
+                        <div class="grid grid-cols-2 gap-4 text-center divide-x divide-slate-300 border-t border-slate-300 pt-6">
+                            <div>
+                                <div class="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Benar</div>
+                                <div class="text-4xl font-black text-green-500">${score}</div>
+                            </div>
+                            <div>
+                                <div class="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Salah / Kosong</div>
+                                <div class="text-4xl font-black text-red-500">${wrongCount}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p class="text-xl text-slate-700 mb-10 font-bold max-w-lg bg-white/70 px-6 py-3 rounded-full shadow-sm">"${message}"</p>
+                    
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button onclick="renderMainMenu()" class="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-200 transform hover:-translate-y-1 flex items-center text-lg">
+                            <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                            Menu Utama
+                        </button>
+                        ${!isForcedExit ? `
+                        <button onclick="showReview()" class="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-200 transform hover:-translate-y-1 flex items-center text-lg">
+                            <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                            Lihat Pembahasan
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            gameContainer.innerHTML = html;
+        }
+
+        function showReview() {
+            gameState = 'review';
+            
+            let reviewHtml = currentQuestions.map((q, i) => {
+                const isCorrect = userAnswers[i] === q.answer;
+                const userAnswerText = userAnswers[i] || 'Tidak dijawab';
+                const completedSentence = q.sentence.replace('___', '<span class="font-black text-blue-600 border-b-2 border-blue-400 mx-1 px-1">' + q.answer + '</span>');
+                
+                return '<div class="mb-5 p-5 rounded-2xl border-2 ' + (isCorrect ? 'bg-green-50/80 border-green-200' : 'bg-red-50/80 border-red-200') + ' shadow-sm relative">' +
+                    '<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">' +
+                        '<div class="flex items-center">' +
+                            '<span class="' + (isCorrect ? 'text-green-700 bg-green-200/60 border-green-300' : 'text-red-700 bg-red-200/60 border-red-300') + ' font-black px-3 py-1 rounded-full text-xs border mr-3">' +
+                                (isCorrect ? '✓ Benar' : '✗ Salah') +
+                            '</span>' +
+                            (!isCorrect ? '<span class="text-sm font-bold text-slate-500">Jawaban Anda: <span class="line-through underline decoration-red-400 decoration-2 text-red-500">' + userAnswerText + '</span></span>' : '') +
+                        '</div>' +
+                        '<div class="text-xs font-black text-slate-400">Soal ' + (i + 1) + '</div>' +
+                    '</div>' +
+                    '<div class="text-xl md:text-2xl text-slate-800 mb-2 font-medium tracking-wide">' + completedSentence + '</div>' +
+                    '<div class="text-sm md:text-base text-slate-600 italic mb-4 font-medium leading-relaxed">"' + q.sentenceMeaning + '"</div>' +
+                    '<div class="bg-white/90 p-4 rounded-xl flex flex-wrap gap-x-6 gap-y-3 text-sm md:text-base border border-white shadow-inner">' +
+                        '<div class="flex items-center"><span class="font-black text-slate-400 uppercase text-xs mr-2">Jawaban yang tepat:</span> <span class="font-bold text-slate-800 text-lg">' + q.answer + '</span></div>' +
+                        '<div class="flex items-center"><span class="font-black text-slate-400 uppercase text-xs mr-2">Pinyin:</span> <span class="font-bold text-blue-600">' + q.pinyin + '</span></div>' +
+                        '<div class="flex items-center w-full sm:w-auto"><span class="font-black text-slate-400 uppercase text-xs mr-2">Arti:</span> <span class="font-medium text-slate-700">' + q.meaning + '</span></div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            let html = '<div class="flex flex-col h-full w-full animate-fade-in bg-white/40 backdrop-blur-sm">' +
+                '<div class="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/60 flex items-center justify-between px-6 shrink-0 shadow-sm z-10">' +
+                    '<h2 class="text-xl font-black text-slate-800 flex items-center"><svg class="w-6 h-6 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> Pembahasan Bab ' + currentLesson.lesson + '</h2>' +
+                    '<button onclick="renderMainMenu()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-full transition shadow-md text-sm">Kembali ke Menu</button>' +
+                '</div>' +
+                '<div class="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar">' +
+                    '<div class="max-w-4xl mx-auto space-y-4 pb-12">' + reviewHtml + '</div>' +
+                '</div>' +
+            '</div>';
+            
+            gameContainer.innerHTML = html;
+        }
+
+        // Custom scrollbar styling
+        const style = document.createElement('style');
+        style.textContent = `
+            .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.4); border-radius: 4px; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.5); border-radius: 4px; }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize App
+        window.onload = renderMainMenu;
+
+    </script>
+</body>
+</html>
